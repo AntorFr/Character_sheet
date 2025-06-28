@@ -14,6 +14,7 @@ env/
 
 # Fichiers générés
 fiches_sorts/
+illustrations/
 *.json
 
 # Fichiers temporaires ou de log

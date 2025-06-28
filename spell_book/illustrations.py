@@ -7,13 +7,14 @@ from character_sheet.utils import sanitize_filename
 
 BASE_PROMPT = (
     "A highly detailed black-and-white ink illustration showing only the magical effect of the spell: {name}. "
-        "The drawing should be in the style of an ancient necromancer’s grimoire, without any text, title, frames, runes, books, or decorative symbols. "
+    "The drawing should be in the style of an ancient necromancer’s grimoire, without any text, title, frames, runes, books, or decorative symbols. "
 )
 
 STYLISTIC_CONSTRAINTS = (
     "A highly detailed black-and-white ink illustration, inspired by the style of an ancient necromancer’s grimoire in world of Dungeons & Dragons"
     "Background must be fully transparent. Center the drawing with at least 15% margin around all edges to avoid clipping." 
-    "Ensure the drawing fades naturally into transparency at the edges, with no hard borders."
+    "Ensure the drawing fades naturally into transparency at the edges, with no hard borders so it appears as if inked directly on ancient parchment.."
+    "The drawing should be in the style of an ancient necromancer’s grimoire, without any text, title, frames."
 )
 
 PROMPT_GENERATION_INSTRUCTION = (
