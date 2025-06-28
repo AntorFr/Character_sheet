@@ -28,13 +28,13 @@ COLOR_SUBTITLE = colors.slategrey
 COLOR_BODY = colors.black
 
 # Marges et espacements
-MARGIN_LEFT = 1.0 * cm
+MARGIN_LEFT = 1.2 * cm
 MARGIN_RIGHT = 1.0 * cm
-MARGIN_TOP = 0.8 * cm
-MARGIN_BOTTOM = 0.8 * cm
-SPACER_SMALL = 6
-SPACER_MEDIUM = 8
-SPACER_LARGE = 10
+MARGIN_TOP = 0.5 * cm
+MARGIN_BOTTOM = 1.0 * cm
+SPACER_SMALL = 5
+SPACER_MEDIUM = 7
+SPACER_LARGE = 9
 
 class SpellPDFGenerator:
     def __init__(self, font_path: str, output_dir: str = "pdf_sorts"):
@@ -59,8 +59,8 @@ class SpellPDFGenerator:
 
     def generate_compiled_pdf(self, folder_path: str, output_path: str = "grimoire_complet.pdf"):
         styles = getSampleStyleSheet()
-        styles.add(ParagraphStyle(name='Titre', fontName=self.font_name_title, fontSize=FONT_SIZE_TITLE, alignment=TA_CENTER, spaceAfter=12, textColor=COLOR_TITLE))
-        styles.add(ParagraphStyle(name='SousTitre', fontName=self.font_name, fontSize=FONT_SIZE_SUBTITLE, alignment=TA_LEFT, spaceAfter=6, textColor=COLOR_SUBTITLE))
+        styles.add(ParagraphStyle(name='Titre', fontName=self.font_name_title, fontSize=FONT_SIZE_TITLE, alignment=TA_CENTER, spaceAfter=SPACER_LARGE, textColor=COLOR_TITLE))
+        styles.add(ParagraphStyle(name='SousTitre', fontName=self.font_name, fontSize=FONT_SIZE_SUBTITLE, alignment=TA_LEFT, spaceAfter=SPACER_SMALL, textColor=COLOR_SUBTITLE))
         styles.add(ParagraphStyle(name='Corps', fontName=self.font_name, fontSize=FONT_SIZE_BODY, alignment=TA_LEFT, leading=LINE_HEIGHT_BODY, textColor=COLOR_BODY))
 
         story = []
@@ -130,13 +130,13 @@ class SpellPDFGenerator:
         self._ajouter_info(story, "Cible", spell.get("Cible"), styles)
         self._ajouter_info(story, "Composantes", spell.get("Composantes"), styles)
 
-        story.append(Spacer(1, SPACER_SMALL))
+        story.append(Spacer(1, SPACER_MEDIUM))
         story.append(Paragraph("<b>Description :</b>", styles["SousTitre"]))
         story.append(Paragraph(spell.get("Description complète", ""), styles["Corps"]))
 
         effet_surcaste = spell.get("Effet en surcaste")
         if effet_surcaste:
-            story.append(Spacer(1, SPACER_SMALL))
+            story.append(Spacer(1, SPACER_MEDIUM))
             story.append(Paragraph("<b>Effet en surcaste :</b>", styles["SousTitre"]))
             story.append(Paragraph(effet_surcaste, styles["Corps"]))
 
