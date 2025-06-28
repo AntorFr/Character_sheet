@@ -90,7 +90,13 @@ class SpellPDFGenerator:
         title_para = Paragraph(titre, styles["Titre"])
         if image_path and os.path.exists(image_path):
             img = Image(image_path, width=90, height=90)
-            title_table = Table([[title_para, img]], colWidths=[8*cm, 2.5*cm])
+            title_table = Table([[title_para, img]], colWidths=[None, 2.5*cm])
+            title_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (0, 0), "MIDDLE"),
+                ("ALIGN", (0, 0), (0, 0), "RIGHT"),
+                ("VALIGN", (1, 0), (1, 0), "TOP"),
+                ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+            ]))
         else:
             title_table = Table([[title_para]], colWidths=[10.5*cm])
 
@@ -143,74 +149,4 @@ class SpellPDFGenerator:
                 styles["Corps"]
             ))
 
-    def _create_pdf(self, spell: dict, output_path: str):
-        c = canvas.Canvas(output_path, pagesize=A5)
-        width, height = A5
 
-        illustrateur = SpellIllustrationGenerator(api_key=os.getenv("OPENAI_API_KEY"))
-        image_path = illustrateur.generate_illustration(spell["Nom"], spell.get("Description complète", ""))
-        image_width = 4.5 * cm
-        image_height = 4.5 * cm
-
-        margin_x = 1.5 * cm
-        margin_y = 1.5 * cm
-        x = margin_x
-
-        style_title = ParagraphStyle(
-            name="TitrePDF",
-            fontName=self.font_name_title,
-            fontSize=FONT_SIZE_TITLE,
-            alignment=TA_LEFT,
-            textColor=COLOR_TITLE
-        )
-        title_para = Paragraph(spell["Nom"], style_title)
-
-        if image_path and os.path.exists(image_path):
-            img = Image(image_path, width=image_width, height=image_height)
-            title_table = Table([[title_para, img]], colWidths=[width - image_width - 2 * margin_x, image_width])
-        else:
-            title_table = Table([[title_para]], colWidths=[width - 2 * margin_x])
-
-        title_table.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (1, 0), (1, 0), "RIGHT"),
-            ("BOX", (0, 0), (-1, -1), 0.25, colors.red),
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.blue),
-        ]))
-
-        title_table.wrapOn(c, width, height)
-        title_table.drawOn(c, margin_x, height - margin_y - image_height)
-        y = height - margin_y - image_height - 6
-        c.setFont(self.font_name, 12)
-
-        def draw_line(label, value, space=14):
-            nonlocal y
-            if value:
-                c.drawString(x, y, f"{label} : {value}")
-                y -= space
-
-        draw_line("Nom original", spell.get("Nom original"))
-        draw_line("Niveau", spell.get("Niveau"))
-        draw_line("École", spell.get("École"))
-        draw_line("Temps d'incantation", spell.get("Temps d'incantation"))
-        draw_line("Portée", spell.get("Portée"))
-        draw_line("Cible", spell.get("Cible"))
-        draw_line("Composantes", spell.get("Composantes"))
-        draw_line("Durée", spell.get("Durée"))
-        draw_line("Concentration", "Oui" if spell.get("Concentration") else "Non")
-        draw_line("Rituel", spell.get("Rituel"))
-        draw_line("Type", spell.get("Type d'attaque / sauvegarde"))
-
-        y -= 10
-        c.drawString(x, y, "Description :")
-        y -= 14
-
-        for line in spell.get("Description complète", "").split(". "):
-            if y < margin_y + 40:
-                c.showPage()
-                y = height - margin_y
-                c.setFont(self.font_name, 12)
-            c.drawString(x, y, line.strip())
-            y -= 14
-
-        c.save()
