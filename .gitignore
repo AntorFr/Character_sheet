@@ -1,0 +1,31 @@
+# Fichiers Python compilés
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environnements virtuels
+venv/
+env/
+.venv/
+
+# Config utilisateur
+*.env
+.env
+
+# Fichiers générés
+fiches_sorts/
+*.json
+
+# Fichiers temporaires ou de log
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Outils de build
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
