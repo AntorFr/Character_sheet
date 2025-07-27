@@ -86,6 +86,7 @@ class SpellPDFGenerator:
         titre = spell.get("Nom", "Sort inconnu")
         illustrateur = SpellIllustrationGenerator(api_key=os.getenv("OPENAI_API_KEY"))
         image_path = illustrateur.generate_illustration(spell["Nom"], spell.get("Description complète", ""))
+        illustrateur.generate_large_illustration(spell["Nom"], spell.get("Description complète", ""))
 
         title_para = Paragraph(titre, styles["Titre"])
         if image_path and os.path.exists(image_path):
@@ -141,6 +142,231 @@ class SpellPDFGenerator:
             story.append(Paragraph(effet_surcaste, styles["Corps"]))
 
         story.append(PageBreak())
+
+    def generate_table_of_contents(self, folder_path: str, output_path: str = "sommaire_grimoire.pdf"):
+        """Génère une page de sommaire avec la liste des sorts organisée par niveau"""
+        styles = getSampleStyleSheet()
+        
+        # Styles personnalisés pour le sommaire
+        styles.add(ParagraphStyle(
+            name='TitreSommaire', 
+            fontName=self.font_name_title, 
+            fontSize=24, 
+            alignment=TA_CENTER, 
+            spaceAfter=20, 
+            textColor=COLOR_TITLE
+        ))
+        styles.add(ParagraphStyle(
+            name='NiveauHeader', 
+            fontName=self.font_name, 
+            fontSize=16, 
+            alignment=TA_LEFT, 
+            spaceAfter=8, 
+            spaceBefore=15,
+            textColor=COLOR_SUBTITLE
+        ))
+        styles.add(ParagraphStyle(
+            name='SortEntry', 
+            fontName=self.font_name, 
+            fontSize=11, 
+            alignment=TA_LEFT, 
+            spaceAfter=2,
+            textColor=COLOR_BODY
+        ))
+
+        story = []
+        
+        # Titre du sommaire
+        story.append(Paragraph("Sommaire du Grimoire", styles["TitreSommaire"]))
+        story.append(Spacer(1, 15))
+
+        # Lire tous les sorts et les organiser
+        sorts_par_niveau = {}
+        fichiers = [f for f in os.listdir(folder_path) if f.endswith(".json") and f != "index.json"]
+        
+        for file in fichiers:
+            with open(os.path.join(folder_path, file), encoding='utf-8') as f:
+                data = json.load(f)
+                # Gestion des fichiers contenant une liste ou un seul sort
+                sorts = data if isinstance(data, list) else [data]
+                
+                for spell in sorts:
+                    niveau = spell.get("Niveau", 0)
+                    if niveau not in sorts_par_niveau:
+                        sorts_par_niveau[niveau] = []
+                    sorts_par_niveau[niveau].append(spell)
+
+        # Trier les sorts par niveau, puis par nom
+        for niveau in sorted(sorts_par_niveau.keys()):
+            sorts_par_niveau[niveau].sort(key=lambda x: x.get("Nom", ""))
+
+        # Générer le contenu du sommaire
+        for niveau in sorted(sorts_par_niveau.keys()):
+            # En-tête de niveau
+            niveau_text = f"Niveau {niveau}" if niveau > 0 else "Tours de magie"
+            story.append(Paragraph(f"<b>{niveau_text}</b>", styles["NiveauHeader"]))
+            
+            # Liste des sorts pour ce niveau
+            table_data = []
+            for spell in sorts_par_niveau[niveau]:
+                nom_sort = spell.get("Nom", "Sort inconnu")
+                rituel = spell.get("Rituel", "Non")
+                
+                # Détermine le symbole : case vide, R pour rituel
+                if rituel.lower() in ["oui", "yes", "true"]:
+                    symbole = "R"
+                else:
+                    symbole = "☐"  # Case à cocher vide
+                
+                # Créer une ligne du tableau
+                table_data.append([symbole, nom_sort])
+            
+            if table_data:
+                # Créer le tableau pour ce niveau
+                table = Table(table_data, colWidths=[0.8*cm, 12*cm])
+                table.setStyle(TableStyle([
+                    ('FONTNAME', (0, 0), (0, -1), self.font_name_title),  # Police titre pour les symboles
+                    ('FONTNAME', (1, 0), (1, -1), self.font_name),        # Police manuscrite pour les noms
+                    ('FONTSIZE', (0, 0), (-1, -1), 11),
+                    ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Centrer les symboles
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),    # Aligner les noms à gauche
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ]))
+                story.append(table)
+                story.append(Spacer(1, 10))
+
+        # Créer le PDF
+        doc = SimpleDocTemplate(output_path, pagesize=A5,
+                                leftMargin=MARGIN_LEFT, rightMargin=MARGIN_RIGHT,
+                                topMargin=MARGIN_TOP, bottomMargin=MARGIN_BOTTOM)
+        doc.build(story)
+        print(f"Sommaire généré : {output_path}")
+
+    def generate_grimoire_with_table_of_contents(self, folder_path: str, output_path: str = "grimoire_avec_sommaire.pdf"):
+        """Génère un grimoire complet avec sommaire intégré en première page"""
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(name='Titre', fontName=self.font_name_title, fontSize=FONT_SIZE_TITLE, alignment=TA_CENTER, spaceAfter=SPACER_LARGE, textColor=COLOR_TITLE))
+        styles.add(ParagraphStyle(name='SousTitre', fontName=self.font_name, fontSize=FONT_SIZE_SUBTITLE, alignment=TA_LEFT, spaceAfter=SPACER_SMALL, textColor=COLOR_SUBTITLE))
+        styles.add(ParagraphStyle(name='Corps', fontName=self.font_name, fontSize=FONT_SIZE_BODY, alignment=TA_LEFT, leading=LINE_HEIGHT_BODY, textColor=COLOR_BODY))
+        
+        # Styles pour le sommaire
+        styles.add(ParagraphStyle(
+            name='TitreSommaire', 
+            fontName=self.font_name_title, 
+            fontSize=24, 
+            alignment=TA_CENTER, 
+            spaceAfter=20, 
+            textColor=COLOR_TITLE
+        ))
+        styles.add(ParagraphStyle(
+            name='NiveauHeader', 
+            fontName=self.font_name, 
+            fontSize=16, 
+            alignment=TA_LEFT, 
+            spaceAfter=8, 
+            spaceBefore=15,
+            textColor=COLOR_SUBTITLE
+        ))
+        styles.add(ParagraphStyle(
+            name='SortsPreparesStyle', 
+            fontName=self.font_name, 
+            fontSize=12, 
+            alignment=TA_CENTER, 
+            spaceAfter=8,
+            textColor=colors.darkblue
+        ))
+
+        story = []
+        
+        # === GÉNÉRATION DU SOMMAIRE ===
+        story.append(Paragraph("Carnis Resurrectionem", styles["TitreSommaire"]))
+        story.append(Spacer(1, 10))
+        
+        # Champ pour le nombre de sorts préparés aligné à droite
+        sorts_prepares_text = f"Préparable : 10"
+        sorts_prepares_table = Table([[sorts_prepares_text]], colWidths=[13*cm])
+        sorts_prepares_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, 0), self.font_name),
+            ('FONTSIZE', (0, 0), (0, 0), 12),
+            ('TEXTCOLOR', (0, 0), (0, 0), colors.darkblue),
+            ('ALIGN', (0, 0), (0, 0), 'RIGHT'),
+            ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+        ]))
+        story.append(sorts_prepares_table)
+        story.append(Spacer(1, 15))
+
+        # Lire tous les sorts et les organiser
+        sorts_par_niveau = {}
+        fichiers = [f for f in sorted(os.listdir(folder_path)) if f.endswith(".json") and f != "index.json"]
+        
+        for file in fichiers:
+            with open(os.path.join(folder_path, file), encoding='utf-8') as f:
+                data = json.load(f)
+                sorts = data if isinstance(data, list) else [data]
+                
+                for spell in sorts:
+                    niveau = spell.get("Niveau", 0)
+                    if niveau not in sorts_par_niveau:
+                        sorts_par_niveau[niveau] = []
+                    sorts_par_niveau[niveau].append(spell)
+
+        # Trier les sorts par niveau, puis par nom
+        for niveau in sorted(sorts_par_niveau.keys()):
+            sorts_par_niveau[niveau].sort(key=lambda x: x.get("Nom", ""))
+
+        # Générer le contenu du sommaire
+        for niveau in sorted(sorts_par_niveau.keys()):
+            niveau_text = f"Niveau {niveau}" if niveau > 0 else "Tours de magie"
+            story.append(Paragraph(f"<b>{niveau_text}</b>", styles["NiveauHeader"]))
+            
+            table_data = []
+            for spell in sorts_par_niveau[niveau]:
+                nom_sort = spell.get("Nom", "Sort inconnu")
+                rituel = spell.get("Rituel", "Non")
+                
+                if rituel.lower() in ["oui", "yes", "true"]:
+                    symbole = "R"
+                else:
+                    symbole = "O"
+                
+                table_data.append([symbole, nom_sort])
+            
+            if table_data:
+                table = Table(table_data, colWidths=[0.8*cm, 12*cm])
+                table.setStyle(TableStyle([
+                    ('FONTNAME', (0, 0), (0, -1), self.font_name_title),  # Police titre pour les symboles
+                    ('FONTNAME', (1, 0), (1, -1), self.font_name),        # Police manuscrite pour les noms
+                    ('FONTSIZE', (0, 0), (-1, -1), 11),
+                    ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ]))
+                story.append(table)
+                story.append(Spacer(1, 10))
+
+        # Saut de page après le sommaire
+        story.append(PageBreak())
+
+        # === GÉNÉRATION DES FICHES DE SORTS ===
+        # Réutiliser la logique de la méthode generate_compiled_pdf
+        for niveau in sorted(sorts_par_niveau.keys()):
+            for spell in sorts_par_niveau[niveau]:
+                self._append_spell_to_story(spell, story, styles)
+
+        # Construire le PDF final
+        doc = SimpleDocTemplate(output_path, pagesize=A5,
+                                leftMargin=MARGIN_LEFT, rightMargin=MARGIN_RIGHT,
+                                topMargin=MARGIN_TOP, bottomMargin=MARGIN_BOTTOM)
+        doc.build(story)
+        print(f"Grimoire avec sommaire généré : {output_path}")
 
     def _ajouter_info(self, story, label, valeur, styles):
         if valeur:

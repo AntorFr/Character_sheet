@@ -11,10 +11,16 @@ BASE_PROMPT = (
 )
 
 STYLISTIC_CONSTRAINTS = (
-    "A highly detailed black-and-white ink illustration, inspired by the style of an ancient necromancer’s grimoire in world of Dungeons & Dragons"
-    "Background must be fully transparent. Center the drawing with at least 15% margin around all edges to avoid clipping." 
+    "A highly detailed black-and-white ink illustration, some touch a color is ok. Inspired by the style of an ancient necromancer’s grimoire in world of Dungeons & Dragons"
+    "Background must be fully transparent. Center the drawing with at least 15% margin around all edges to avoid clipping."
     "Ensure the drawing fades naturally into transparency at the edges, with no hard borders so it appears as if inked directly on ancient parchment.."
     "The drawing should be in the style of an ancient necromancer’s grimoire, without any text, title, frames."
+)
+
+LARGE_ILLUSTRATION_CONTEXT_PROMPT = (
+    "Depict a necromantic manifestation of the spell involving diverse creatures from the Dungeons & Dragons bestiary—undead, monstrosities, fiends, or even corrupted elves, dwarves, tieflings, and orcs. "
+    "The illustration should show a dramatic magical scene where necromantic energy interacts with these beings: possession, resurrection, agony, or transformation. "
+    "Ensure high anatomical variety and dynamic composition, focusing on contrast, shadow, and decay to emphasize the dark magic at work."
 )
 
 PROMPT_GENERATION_INSTRUCTION = (
@@ -49,9 +55,6 @@ class SpellIllustrationGenerator:
         except Exception as e:
             print(f"❌ Erreur lors de la génération du prompt pour '{spell_name}': {e}")
             return BASE_PROMPT.format(name=spell_name)
-        except Exception as e:
-            print(f"❌ Erreur lors de la génération du prompt pour '{spell_name}': {e}")
-            return BASE_PROMPT.format(name=spell_name)
 
     def generate_illustration(self, spell_name: str, description: str) -> str:
         filename = sanitize_filename(spell_name) + ".png"
@@ -79,11 +82,52 @@ class SpellIllustrationGenerator:
             # Save the image to a file
             with open(filepath, "wb") as f:
                 f.write(image_bytes)
-   
 
             print(f"✅ Illustration générée et enregistrée : {filepath}")
             return filepath
 
         except Exception as e:
             print(f"❌ Erreur lors de la génération de l'illustration pour '{spell_name}': {e}")
+            return None
+
+    def generate_large_illustration(self, spell_name: str, description: str, prompt_addition: str = "") -> str:
+        large_dir = os.path.join(self.output_dir, "large")
+        os.makedirs(large_dir, exist_ok=True)
+
+        filename = sanitize_filename(spell_name) + ".png"
+        filepath = os.path.join(large_dir, filename)
+
+        if os.path.exists(filepath):
+            print(f"✔ Illustration large déjà générée pour '{spell_name}', chargée depuis {filepath}")
+            return filepath
+
+        base_prompt = self.generate_prompt_with_chatgpt(spell_name, description)
+        final_prompt = (
+            STYLISTIC_CONSTRAINTS + " " +
+            LARGE_ILLUSTRATION_CONTEXT_PROMPT + " " +
+            base_prompt + " " +
+            prompt_addition
+        )
+
+        try:
+            response = self.client.images.generate(
+                model=self.model,
+                prompt=final_prompt.strip(),
+                n=1,
+                size="1024x1536", 
+                output_format="png",
+                quality="medium"
+            )
+
+            image_base64 = response.data[0].b64_json
+            image_bytes = base64.b64decode(image_base64)
+
+            with open(filepath, "wb") as f:
+                f.write(image_bytes)
+
+            print(f"✅ Illustration A5 large générée et enregistrée : {filepath}")
+            return filepath
+
+        except Exception as e:
+            print(f"❌ Erreur lors de la génération de l'illustration large pour '{spell_name}': {e}")
             return None
