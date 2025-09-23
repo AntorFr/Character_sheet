@@ -18,7 +18,7 @@ sorts = [
     "Cécité/Surdité", "Foulée brumeuse", "Immobilisation de personne", "Sphère de feu",
     "Animation des morts", "Boule de feu", "Communication avec les morts",
     "Convocation de mort-vivant", "Contresort", "Toucher du vampire", "Préservation des morts",
-    "Disque flottant de Tenser", "Mort simulée"
+    "Disque flottant de Tenser", "Mort simulée", "Moqueries Argentées"
 ]
 
 # Initialiser le générateur
