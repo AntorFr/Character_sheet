@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+from dotenv import load_dotenv
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A5
@@ -16,6 +17,9 @@ from reportlab.lib import colors
 
 from .illustrations import SpellIllustrationGenerator
 from character_sheet.utils import sanitize_filename
+
+# Charger les variables d'environnement depuis le fichier .env
+load_dotenv()
 
 # Constantes de mise en page et style
 FONT_SIZE_TITLE = 20
@@ -84,9 +88,27 @@ class SpellPDFGenerator:
 
     def _append_spell_to_story(self, spell: dict, story: list, styles):
         titre = spell.get("Nom", "Sort inconnu")
-        illustrateur = SpellIllustrationGenerator(api_key=os.getenv("OPENAI_API_KEY"))
-        image_path = illustrateur.generate_illustration(spell["Nom"], spell.get("Description complète", ""))
-        illustrateur.generate_large_illustration(spell["Nom"], spell.get("Description complète", ""))
+        
+        # Vérifier si une illustration existe déjà
+        spell_name_clean = sanitize_filename(titre)
+        image_path = f"illustrations/{spell_name_clean}.png"
+        
+        # Utiliser l'illustration existante si elle existe
+        if os.path.exists(image_path):
+            print(f"✔ Illustration existante utilisée pour '{titre}': {image_path}")
+        # Sinon, générer une illustration seulement si la clé API est disponible
+        elif os.getenv("OPENAI_API_KEY"):
+            try:
+                illustrateur = SpellIllustrationGenerator(api_key=os.getenv("OPENAI_API_KEY"))
+                image_path = illustrateur.generate_illustration(spell["Nom"], spell.get("Description complète", ""))
+                illustrateur.generate_large_illustration(spell["Nom"], spell.get("Description complète", ""))
+                print(f"🎨 Illustration générée pour '{titre}': {image_path}")
+            except Exception as e:
+                print(f"❌ Impossible de générer l'illustration pour {titre}: {e}")
+                image_path = None
+        else:
+            print(f"⚠ Pas d'illustration disponible pour '{titre}' (pas de clé API)")
+            image_path = None
 
         title_para = Paragraph(titre, styles["Titre"])
         if image_path and os.path.exists(image_path):
