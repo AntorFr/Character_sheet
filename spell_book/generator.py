@@ -138,8 +138,20 @@ class SpellPDFGenerator:
                 data = json.load(f)
                 if isinstance(data, list):
                     for spell in data:
+                        # Vérifier si le sort doit être inclus selon la configuration joueur/thème
+                        nom_sort = spell.get("Nom", "Sort inconnu")
+                        if self.player and not self.player.should_include_spell(sanitize_filename(nom_sort)):
+                            continue
+                        elif self.theme and not self.theme.should_include_spell(nom_sort):
+                            continue
                         self._append_spell_to_story(spell, story, styles)
                 else:
+                    # Vérifier si le sort doit être inclus selon la configuration joueur/thème
+                    nom_sort = data.get("Nom", "Sort inconnu")
+                    if self.player and not self.player.should_include_spell(sanitize_filename(nom_sort)):
+                        continue
+                    elif self.theme and not self.theme.should_include_spell(nom_sort):
+                        continue
                     self._append_spell_to_story(data, story, styles)
 
         doc = SimpleDocTemplate(output_path, pagesize=A5,
