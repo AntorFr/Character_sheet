@@ -52,3 +52,22 @@ class ThemeManager:
         if isinstance(spell_filter, list):
             return any(filter_term.lower() in spell_name.lower() for filter_term in spell_filter)
         return True
+    
+    def get_illustration_prompts(self) -> Dict[str, str]:
+        """Retourne les prompts d'illustration pour ce thème"""
+        return self.config.get("illustration_prompts", {})
+    
+    def get_base_prompt(self) -> str:
+        """Retourne le prompt de base pour les illustrations"""
+        prompts = self.get_illustration_prompts()
+        return prompts.get("base_prompt", "A detailed illustration of the spell: {name}")
+    
+    def get_stylistic_constraints(self) -> str:
+        """Retourne les contraintes stylistiques pour les illustrations"""
+        prompts = self.get_illustration_prompts()
+        return prompts.get("stylistic_constraints", "A detailed fantasy illustration")
+    
+    def get_large_illustration_context(self) -> str:
+        """Retourne le contexte pour les grandes illustrations"""
+        prompts = self.get_illustration_prompts()
+        return prompts.get("large_illustration_context", "A large detailed illustration")

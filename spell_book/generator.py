@@ -172,7 +172,7 @@ class SpellPDFGenerator:
                 illustrateur = SpellIllustrationGenerator(
                     api_key=os.getenv("OPENAI_API_KEY"), 
                     output_dir=output_dir,
-                    theme_style=illustration_style
+                    theme_manager=self.theme
                 )
                 image_path = illustrateur.generate_illustration(spell["Nom"], spell.get("Description complète", ""))
                 illustrateur.generate_large_illustration(spell["Nom"], spell.get("Description complète", ""))

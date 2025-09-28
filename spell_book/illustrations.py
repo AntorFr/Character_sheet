@@ -2,26 +2,7 @@ import os
 import base64
 from openai import OpenAI
 from character_sheet.utils import sanitize_filename
-
-# === PARAMÈTRES DE PROMPT ===
-
-BASE_PROMPT = (
-    "A highly detailed black-and-white ink illustration showing only the magical effect of the spell: {name}. "
-    "The drawing should be in the style of an ancient necromancer’s grimoire, without any text, title, frames, runes, books, or decorative symbols. "
-)
-
-STYLISTIC_CONSTRAINTS = (
-    "A highly detailed black-and-white ink illustration, some touch a color is ok. Inspired by the style of an ancient necromancer’s grimoire in world of Dungeons & Dragons"
-    "Background must be fully transparent. Center the drawing with at least 15% margin around all edges to avoid clipping."
-    "Ensure the drawing fades naturally into transparency at the edges, with no hard borders so it appears as if inked directly on ancient parchment.."
-    "The drawing should be in the style of an ancient necromancer’s grimoire, without any text, title, frames."
-)
-
-LARGE_ILLUSTRATION_CONTEXT_PROMPT = (
-    "Depict a necromantic manifestation of the spell involving diverse creatures from the Dungeons & Dragons bestiary—undead, monstrosities, fiends, or even corrupted elves, dwarves, tieflings, and orcs. "
-    "The illustration should show a dramatic magical scene where necromantic energy interacts with these beings: possession, resurrection, agony, or transformation. "
-    "Ensure high anatomical variety and dynamic composition, focusing on contrast, shadow, and decay to emphasize the dark magic at work."
-)
+from .theme_manager import ThemeManager
 
 PROMPT_GENERATION_INSTRUCTION = (
     "You are an expert magical illustrator. Based on the name and description of a Dungeons & Dragons spell, "
@@ -30,18 +11,20 @@ PROMPT_GENERATION_INSTRUCTION = (
 )
 
 class SpellIllustrationGenerator:
-    def __init__(self, api_key: str, output_dir="illustrations", model="gpt-image-1", theme_style: str = None):
+    def __init__(self, api_key: str, output_dir="illustrations", model="gpt-image-1", theme_manager: ThemeManager = None):
         self.api_key = api_key
         self.client = OpenAI(api_key=self.api_key)
         self.output_dir = output_dir
         self.model = model
-        self.theme_style = theme_style or "dark medieval necromancy, skulls, shadows, undead, gothic"
+        self.theme_manager = theme_manager
+        self.theme_style = theme_manager.get_illustration_style() if theme_manager else "fantasy art"
         os.makedirs(self.output_dir, exist_ok=True)
 
     def generate_prompt_with_chatgpt(self, spell_name: str, description: str) -> str:
         try:
-            # Ajouter le style du thème aux contraintes stylistiques
-            themed_constraints = f"{STYLISTIC_CONSTRAINTS} Style: {self.theme_style}"
+            # Utiliser les contraintes stylistiques du thème
+            stylistic_constraints = self.theme_manager.get_stylistic_constraints() if self.theme_manager else "A detailed fantasy illustration"
+            themed_constraints = f"{stylistic_constraints} Style: {self.theme_style}"
             
             response = self.client.chat.completions.create(
                 model="gpt-4",
@@ -58,7 +41,8 @@ class SpellIllustrationGenerator:
             return prompt_text
         except Exception as e:
             print(f"❌ Erreur lors de la génération du prompt pour '{spell_name}': {e}")
-            return BASE_PROMPT.format(name=spell_name)
+            base_prompt = self.theme_manager.get_base_prompt() if self.theme_manager else "A detailed illustration of the spell: {name}"
+            return base_prompt.format(name=spell_name)
 
     def generate_illustration(self, spell_name: str, description: str) -> str:
         filename = sanitize_filename(spell_name) + ".png"
@@ -68,8 +52,9 @@ class SpellIllustrationGenerator:
             print(f"✔ Illustration déjà générée pour '{spell_name}', chargée depuis {filepath}")
             return filepath
 
-        # Combiner les contraintes stylistiques avec le style du thème
-        themed_prompt = f"{STYLISTIC_CONSTRAINTS} Style: {self.theme_style}. " + self.generate_prompt_with_chatgpt(spell_name, description)
+        # Combiner les contraintes stylistiques du thème avec le style
+        stylistic_constraints = self.theme_manager.get_stylistic_constraints() if self.theme_manager else "A detailed fantasy illustration"
+        themed_prompt = f"{stylistic_constraints} Style: {self.theme_style}. " + self.generate_prompt_with_chatgpt(spell_name, description)
 
         try:
             response = self.client.images.generate(
@@ -107,9 +92,11 @@ class SpellIllustrationGenerator:
             return filepath
 
         base_prompt = self.generate_prompt_with_chatgpt(spell_name, description)
+        stylistic_constraints = self.theme_manager.get_stylistic_constraints() if self.theme_manager else "A detailed fantasy illustration"
+        large_context = self.theme_manager.get_large_illustration_context() if self.theme_manager else ""
         final_prompt = (
-            f"{STYLISTIC_CONSTRAINTS} Style: {self.theme_style}. " +
-            LARGE_ILLUSTRATION_CONTEXT_PROMPT + " " +
+            f"{stylistic_constraints} Style: {self.theme_style}. " +
+            large_context + " " +
             base_prompt + " " +
             prompt_addition
         )
