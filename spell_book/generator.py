@@ -482,10 +482,29 @@ class SpellPDFGenerator:
         doc.build(story)
         print(f"Grimoire avec sommaire généré : {output_path}")
 
-    def generate_player_grimoire(self, output_path: str):
+    def _sanitize_filename(self, title: str) -> str:
+        """Nettoie un titre pour en faire un nom de fichier valide"""
+        import re
+        # Remplace les caractères non autorisés par des underscores
+        sanitized = re.sub(r'[<>:"/\|?*]', '_', title)
+        # Remplace les espaces par des underscores
+        sanitized = re.sub(r'\s+', '_', sanitized)
+        # Supprime les underscores multiples
+        sanitized = re.sub(r'_+', '_', sanitized)
+        # Supprime les underscores en début et fin
+        sanitized = sanitized.strip('_')
+        return sanitized
+
+    def generate_player_grimoire(self, output_path: str = None):
         """Génère un grimoire personnalisé pour un joueur spécifique"""
         if not self.player:
             raise ValueError("Cette méthode nécessite une configuration de joueur")
+        
+        # Si aucun chemin n'est fourni, utilise le grimoire_title
+        if output_path is None:
+            grimoire_title = self.player.get_grimoire_title()
+            filename = self._sanitize_filename(grimoire_title) + ".pdf"
+            output_path = filename
         
         print(f"🧙‍♂️ Génération du grimoire pour {self.player.get_character_name()}...")
         
