@@ -288,7 +288,7 @@ class SpellPDFGenerator:
         story.append(Paragraph("Sommaire du Grimoire", styles["TitreSommaire"]))
         story.append(Spacer(1, 15))
 
-        # Lire tous les sorts et les organiser
+        # Lire tous les sorts et les organiser (avec filtrage)
         sorts_par_niveau = {}
         fichiers = [f for f in os.listdir(folder_path) if f.endswith(".json") and f != "index.json"]
         
@@ -299,6 +299,13 @@ class SpellPDFGenerator:
                 sorts = data if isinstance(data, list) else [data]
                 
                 for spell in sorts:
+                    # Filtrer les sorts selon le joueur/thème AVANT de les organiser
+                    nom_sort = spell.get("Nom", "Sort inconnu")
+                    if self.player and not self.player.should_include_spell(sanitize_filename(nom_sort)):
+                        continue
+                    elif self.theme and not self.theme.should_include_spell(nom_sort):
+                        continue
+                    
                     niveau = spell.get("Niveau", 0)
                     if niveau not in sorts_par_niveau:
                         sorts_par_niveau[niveau] = []
@@ -418,7 +425,7 @@ class SpellPDFGenerator:
         story.append(sorts_prepares_table)
         story.append(Spacer(1, 15))
 
-        # Lire tous les sorts et les organiser
+        # Lire tous les sorts et les organiser (avec filtrage)
         sorts_par_niveau = {}
         fichiers = [f for f in sorted(os.listdir(folder_path)) if f.endswith(".json") and f != "index.json"]
         
@@ -428,6 +435,13 @@ class SpellPDFGenerator:
                 sorts = data if isinstance(data, list) else [data]
                 
                 for spell in sorts:
+                    # Filtrer les sorts selon le joueur/thème AVANT de les organiser
+                    nom_sort = spell.get("Nom", "Sort inconnu")
+                    if self.player and not self.player.should_include_spell(sanitize_filename(nom_sort)):
+                        continue
+                    elif self.theme and not self.theme.should_include_spell(nom_sort):
+                        continue
+                    
                     niveau = spell.get("Niveau", 0)
                     if niveau not in sorts_par_niveau:
                         sorts_par_niveau[niveau] = []
@@ -446,12 +460,6 @@ class SpellPDFGenerator:
             for spell in sorts_par_niveau[niveau]:
                 nom_sort = spell.get("Nom", "Sort inconnu")
                 rituel = spell.get("Rituel", "Non")
-                
-                # Filtrer les sorts selon le joueur/thème si applicable
-                if self.player and not self.player.should_include_spell(sanitize_filename(nom_sort)):
-                    continue
-                elif self.theme and not self.theme.should_include_spell(nom_sort):
-                    continue
                 
                 # Déterminer le symbole selon le type de sort
                 if rituel.lower() in ["oui", "yes", "true"]:
