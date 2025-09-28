@@ -30,27 +30,31 @@ PROMPT_GENERATION_INSTRUCTION = (
 )
 
 class SpellIllustrationGenerator:
-    def __init__(self, api_key: str, output_dir="illustrations", model="gpt-image-1"):
+    def __init__(self, api_key: str, output_dir="illustrations", model="gpt-image-1", theme_style: str = None):
         self.api_key = api_key
         self.client = OpenAI(api_key=self.api_key)
         self.output_dir = output_dir
         self.model = model
+        self.theme_style = theme_style or "dark medieval necromancy, skulls, shadows, undead, gothic"
         os.makedirs(self.output_dir, exist_ok=True)
 
     def generate_prompt_with_chatgpt(self, spell_name: str, description: str) -> str:
         try:
+            # Ajouter le style du thème aux contraintes stylistiques
+            themed_constraints = f"{STYLISTIC_CONSTRAINTS} Style: {self.theme_style}"
+            
             response = self.client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": PROMPT_GENERATION_INSTRUCTION },
                     {"role": "user", "content": f"""Spell name: {spell_name}
                      Description: {description}
-                     Stylistic constraints: {STYLISTIC_CONSTRAINTS}"""}
+                     Stylistic constraints: {themed_constraints}"""}
                 ],
                 temperature=0.7
             )
             prompt_text = response.choices[0].message.content.strip()
-            print(f"🧠 Prompt généré par GPT pour '{spell_name}': {prompt_text}")
+            print(f"🧠 Prompt généré par GPT pour '{spell_name}' (style: {self.theme_style}): {prompt_text}")
             return prompt_text
         except Exception as e:
             print(f"❌ Erreur lors de la génération du prompt pour '{spell_name}': {e}")
@@ -64,12 +68,13 @@ class SpellIllustrationGenerator:
             print(f"✔ Illustration déjà générée pour '{spell_name}', chargée depuis {filepath}")
             return filepath
 
-        prompt = STYLISTIC_CONSTRAINTS + "" +  self.generate_prompt_with_chatgpt(spell_name, description)
+        # Combiner les contraintes stylistiques avec le style du thème
+        themed_prompt = f"{STYLISTIC_CONSTRAINTS} Style: {self.theme_style}. " + self.generate_prompt_with_chatgpt(spell_name, description)
 
         try:
             response = self.client.images.generate(
                 model=self.model,
-                prompt=prompt,
+                prompt=themed_prompt,
                 n=1,
                 size="1024x1024",
                 output_format="png",
@@ -103,7 +108,7 @@ class SpellIllustrationGenerator:
 
         base_prompt = self.generate_prompt_with_chatgpt(spell_name, description)
         final_prompt = (
-            STYLISTIC_CONSTRAINTS + " " +
+            f"{STYLISTIC_CONSTRAINTS} Style: {self.theme_style}. " +
             LARGE_ILLUSTRATION_CONTEXT_PROMPT + " " +
             base_prompt + " " +
             prompt_addition

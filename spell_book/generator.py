@@ -16,6 +16,8 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib import colors
 
 from .illustrations import SpellIllustrationGenerator
+from .theme_manager import ThemeManager
+from .player_manager import PlayerManager
 from character_sheet.utils import sanitize_filename
 
 # Charger les variables d'environnement depuis le fichier .env
@@ -41,13 +43,72 @@ SPACER_MEDIUM = 7
 SPACER_LARGE = 9
 
 class SpellPDFGenerator:
-    def __init__(self, font_path: str, output_dir: str = "pdf_sorts"):
-        self.font_name = "Manuscrite"
+    def __init__(self, player: str = None, theme: str = None, output_dir: str = "pdf_sorts"):
+        """
+        Initialise le générateur de PDF de sorts
+        
+        Args:
+            player: Nom du joueur (utilise sa configuration personnalisée)
+            theme: Nom du thème à utiliser (si pas de joueur spécifique)
+            output_dir: Dossier de sortie pour les PDFs
+        """
+        if not player and not theme:
+            raise ValueError("Vous devez spécifier soit un joueur soit un thème. Exemple: SpellPDFGenerator(player='bastian') ou SpellPDFGenerator(theme='necromancien')")
+        
         self.output_dir = output_dir
-        os.makedirs(self.output_dir, exist_ok=True)
-        pdfmetrics.registerFont(TTFont(self.font_name, font_path))
-        self.font_name_title = "TitreMagique"
-        pdfmetrics.registerFont(TTFont(self.font_name_title, "fonts/CaesarDressing-Regular.ttf"))
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Mode joueur spécifique (priorité la plus haute)
+        if player:
+            self.player = PlayerManager(player)
+            self.theme = self.player.theme
+            self.font_path = self.theme.get_font_path("body")
+            self.font_path_title = self.theme.get_font_path("title")
+            self.illustrations_folder = self.theme.get_illustrations_folder()
+            self._setup_theme_colors()
+        # Mode thème seulement
+        else:  # theme is not None
+            self.player = None
+            self.theme = ThemeManager(theme)
+            self.font_path = self.theme.get_font_path("body")
+            self.font_path_title = self.theme.get_font_path("title")
+            self.illustrations_folder = self.theme.get_illustrations_folder()
+            self._setup_theme_colors()
+        
+        # Enregistrement des polices
+        self._register_fonts()
+    
+    def _setup_theme_colors(self):
+        """Configure les couleurs selon le thème"""
+        theme_colors = self.theme.get_colors()
+        
+        # Appliquer les surcharges du joueur si applicable
+        if self.player:
+            custom_colors = self.player.get_custom_overrides().get("colors", {})
+            theme_colors.update(custom_colors)
+        
+        # Convertir les couleurs hex en objets Color de ReportLab
+        global COLOR_TITLE, COLOR_SUBTITLE, COLOR_BODY
+        COLOR_TITLE = colors.toColor(theme_colors.get("title", "#8B0000"))
+        COLOR_SUBTITLE = colors.toColor(theme_colors.get("subtitle", "#2F4F4F"))
+        COLOR_BODY = colors.toColor(theme_colors.get("body", "#000000"))
+    
+
+    def _register_fonts(self):
+        """Enregistre les polices utilisées"""
+        try:
+            # Police du corps de texte
+            pdfmetrics.registerFont(TTFont("Manuscrite", self.font_path))
+            self.font_name = "Manuscrite"
+            
+            # Police du titre
+            pdfmetrics.registerFont(TTFont("TitreFont", self.font_path_title))
+            self.font_name_title = "TitreFont"
+        except Exception as e:
+            print(f"Erreur lors de l'enregistrement des polices: {e}")
+            # Fallback vers les polices par défaut
+            self.font_name = "Helvetica"
+            self.font_name_title = "Helvetica-Bold"
 
     def generate_from_file(self, json_path: str):
         with open(json_path, encoding='utf-8') as f:
@@ -91,7 +152,7 @@ class SpellPDFGenerator:
         
         # Vérifier si une illustration existe déjà
         spell_name_clean = sanitize_filename(titre)
-        image_path = f"illustrations/{spell_name_clean}.png"
+        image_path = f"{self.illustrations_folder}/{spell_name_clean}.png"
         
         # Utiliser l'illustration existante si elle existe
         if os.path.exists(image_path):
@@ -99,7 +160,20 @@ class SpellPDFGenerator:
         # Sinon, générer une illustration seulement si la clé API est disponible
         elif os.getenv("OPENAI_API_KEY"):
             try:
-                illustrateur = SpellIllustrationGenerator(api_key=os.getenv("OPENAI_API_KEY"))
+                # Utiliser le bon dossier de destination selon le thème
+                output_dir = self.illustrations_folder
+                
+                # Obtenir le style d'illustration selon le thème
+                if self.theme:
+                    illustration_style = self.theme.get_illustration_style()
+                else:
+                    illustration_style = "fantasy art"
+                
+                illustrateur = SpellIllustrationGenerator(
+                    api_key=os.getenv("OPENAI_API_KEY"), 
+                    output_dir=output_dir,
+                    theme_style=illustration_style
+                )
                 image_path = illustrateur.generate_illustration(spell["Nom"], spell.get("Description complète", ""))
                 illustrateur.generate_large_illustration(spell["Nom"], spell.get("Description complète", ""))
                 print(f"🎨 Illustration générée pour '{titre}': {image_path}")
@@ -305,11 +379,22 @@ class SpellPDFGenerator:
         story = []
         
         # === GÉNÉRATION DU SOMMAIRE ===
-        story.append(Paragraph("Carnis Resurrectionem", styles["TitreSommaire"]))
+        # Titre personnalisé selon le thème/joueur
+        if self.player:
+            grimoire_title = self.player.get_grimoire_title()
+            max_spells = self.player.get_max_prepared_spells()
+        elif self.theme:
+            grimoire_title = self.theme.get_title()
+            max_spells = self.theme.get_max_prepared_spells()
+        else:
+            grimoire_title = "Carnis Resurrectionem"  # Legacy
+            max_spells = 10
+            
+        story.append(Paragraph(grimoire_title, styles["TitreSommaire"]))
         story.append(Spacer(1, 10))
         
         # Champ pour le nombre de sorts préparés aligné à droite
-        sorts_prepares_text = f"Préparable : 10"
+        sorts_prepares_text = f"Préparable : {max_spells}"
         sorts_prepares_table = Table([[sorts_prepares_text]], colWidths=[13*cm])
         sorts_prepares_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (0, 0), self.font_name),
@@ -350,10 +435,19 @@ class SpellPDFGenerator:
                 nom_sort = spell.get("Nom", "Sort inconnu")
                 rituel = spell.get("Rituel", "Non")
                 
+                # Filtrer les sorts selon le joueur/thème si applicable
+                if self.player and not self.player.should_include_spell(sanitize_filename(nom_sort)):
+                    continue
+                elif self.theme and not self.theme.should_include_spell(nom_sort):
+                    continue
+                
+                # Déterminer le symbole selon le type de sort et l'état
                 if rituel.lower() in ["oui", "yes", "true"]:
                     symbole = "R"
+                elif self.player and self.player.is_spell_prepared(sanitize_filename(nom_sort)):
+                    symbole = "☑"  # Case cochée pour les sorts préparés
                 else:
-                    symbole = "O"
+                    symbole = "☐"  # Case vide pour les sorts non préparés
                 
                 table_data.append([symbole, nom_sort])
             
@@ -389,6 +483,30 @@ class SpellPDFGenerator:
                                 topMargin=MARGIN_TOP, bottomMargin=MARGIN_BOTTOM)
         doc.build(story)
         print(f"Grimoire avec sommaire généré : {output_path}")
+
+    def generate_player_grimoire(self, output_path: str):
+        """Génère un grimoire personnalisé pour un joueur spécifique"""
+        if not self.player:
+            raise ValueError("Cette méthode nécessite une configuration de joueur")
+        
+        print(f"🧙‍♂️ Génération du grimoire pour {self.player.get_character_name()}...")
+        
+        # Utilise la méthode standard mais avec la configuration du joueur
+        self.generate_grimoire_with_table_of_contents("fiches_sorts", output_path)
+        
+        print(f"✅ Grimoire de {self.player.get_character_name()} généré : {output_path}")
+
+    def generate_theme_grimoire(self, output_path: str):
+        """Génère un grimoire basé sur un thème spécifique"""
+        if not self.theme:
+            raise ValueError("Cette méthode nécessite une configuration de thème")
+        
+        print(f"🎭 Génération du grimoire thème '{self.theme.theme_name}'...")
+        
+        # Utilise la méthode standard mais avec la configuration du thème
+        self.generate_grimoire_with_table_of_contents("fiches_sorts", output_path)
+        
+        print(f"✅ Grimoire thème '{self.theme.theme_name}' généré : {output_path}")
 
     def _ajouter_info(self, story, label, valeur, styles):
         if valeur:
