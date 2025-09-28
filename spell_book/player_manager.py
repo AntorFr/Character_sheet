@@ -25,10 +25,6 @@ class PlayerManager:
         """Retourne la liste des sorts connus par le joueur"""
         return self.config.get("known_spells", [])
         
-    def get_prepared_spells(self) -> List[str]:
-        """Retourne la liste des sorts préparés par le joueur"""
-        return self.config.get("prepared_spells", [])
-        
     def get_max_prepared_spells(self) -> int:
         """Retourne le nombre maximum de sorts que le joueur peut préparer"""
         return self.config.get("max_prepared_spells", self.theme.get_max_prepared_spells())
@@ -47,10 +43,6 @@ class PlayerManager:
         if not known_spells:  # Si pas de liste spécifique, utiliser le filtre du thème
             return self.theme.should_include_spell(spell_name)
         return spell_name in known_spells
-        
-    def is_spell_prepared(self, spell_name: str) -> bool:
-        """Vérifie si un sort est préparé par le joueur"""
-        return spell_name in self.get_prepared_spells()
     
     def get_custom_overrides(self) -> Dict[str, Any]:
         """Retourne les surcharges personnalisées du joueur"""

@@ -441,13 +441,11 @@ class SpellPDFGenerator:
                 elif self.theme and not self.theme.should_include_spell(nom_sort):
                     continue
                 
-                # Déterminer le symbole selon le type de sort et l'état
+                # Déterminer le symbole selon le type de sort
                 if rituel.lower() in ["oui", "yes", "true"]:
-                    symbole = "R"
-                elif self.player and self.player.is_spell_prepared(sanitize_filename(nom_sort)):
-                    symbole = "☑"  # Case cochée pour les sorts préparés
+                    symbole = "R"  # R pour rituel
                 else:
-                    symbole = "☐"  # Case vide pour les sorts non préparés
+                    symbole = "☐"  # Case vide pour cocher manuellement
                 
                 table_data.append([symbole, nom_sort])
             
